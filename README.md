@@ -4,6 +4,6 @@ Embbed javascript code in PNG and add custom chunk with a "html unpacking" scrip
 
 Compile: `clang -lz -lzopfli -std=c17 -Wall -Wextra -pedantic zopfli-pnginator.c`
 
-Based on:
-[daeken](https://daeken.dev/blog/2011-08-31_Superpacking_JS_Demos.html)
-[gasman](https://gist.github.com/gasman/2560551)
+Based on ideas and code from
+- [daeken](https://daeken.dev/blog/2011-08-31_Superpacking_JS_Demos.html)
+- [gasman](https://gist.github.com/gasman/2560551)
