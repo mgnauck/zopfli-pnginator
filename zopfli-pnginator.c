@@ -8,6 +8,10 @@ clang -lz -lzopfli -std=c17 -Wall -Wextra -pedantic zopfli-pnginator.c
 Based on:
 https://daeken.dev/blog/2011-08-31_Superpacking_JS_Demos.html
 https://gist.github.com/gasman/2560551
+
+Uses:
+https://github.com/google/zopfli
+https://github.com/madler/zlib
 */
 
 #include <math.h>
