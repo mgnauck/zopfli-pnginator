@@ -106,9 +106,9 @@ char *read_text_file(const char *file_path) {
     rewind(file);
 
     // Add an additional byte for null terminating the string
-    text = (char *)calloc(size + 1, sizeof(char));
+    text = calloc(size + 1, 1);
 
-    if (fread(text, sizeof(char), size, file) != size) {
+    if (fread(text, 1, size, file) != size) {
       printf("Failed to read source file '%s'\n", file_path);
       free(text);
       text = NULL;
@@ -135,17 +135,17 @@ IMAGE *embbed_javascript_in_image(
   if (javascript_length < SINGLE_ROW_MAX_LENGTH) {
     // Size of single row in the image is length of javascript + 1 byte for
     // dummy marker added at the end
-    image->width = javascript_length + sizeof(unsigned char);
+    image->width = javascript_length + 1;
     image->height = 1;
 
     // Image data size is it's width plus 1 byte for 'no filtering' indicator
     // at the beginning of the row
-    image->size = sizeof(unsigned char) + image->width;
-    image->data = (unsigned char *)calloc(image->size, sizeof(unsigned char));
+    image->size = image->width + 1;
+    image->data = calloc(image->size, 1);
 
     // Copy javascript string into destination buffer, account for 'no
     // filtering' \0 indicator at begin of row
-    memcpy(image->data + sizeof(unsigned char), javascript, javascript_length);
+    memcpy(image->data + 1, javascript, javascript_length);
 
     // Dummy marker \0 at end of javascript string (required by unpacking) is
     // already there due to calloc
@@ -154,16 +154,16 @@ IMAGE *embbed_javascript_in_image(
     image->width = SINGLE_ROW_MAX_LENGTH;
 
     // Account for dummy byte required by unpacking to calculate number of rows
-    image->height = (size_t)ceil((javascript_length + sizeof(unsigned char)) /
+    image->height = (size_t)ceil((javascript_length + 1) /
                                  (float)SINGLE_ROW_MAX_LENGTH);
 
     // Full data size includes 1 byte 'no filtering' indicator per row
-    image->size = ((image->width) + sizeof(unsigned char)) * (image->height);
-    image->data = (unsigned char *)calloc(image->size, sizeof(unsigned char));
+    image->size = ((image->width) + 1) * (image->height);
+    image->data = calloc(image->size, 1);
 
     // Start at byte 2 of first row because of 'no filtering' \0 indicator
     // and dummy byte \0 for unpacking
-    unsigned char *image_ptr = image->data + 2 * sizeof(unsigned char);
+    unsigned char *image_ptr = image->data + 2;
 
     // Handle each row separately
     for (size_t i = 0; i < javascript_length;) {
@@ -175,98 +175,89 @@ IMAGE *embbed_javascript_in_image(
               (i == 0 ? SINGLE_ROW_MAX_LENGTH - 1 : SINGLE_ROW_MAX_LENGTH));
 
       // Copy the full row from source to destination
-      memcpy(image_ptr, javascript + i * sizeof(unsigned char),
-             row_length * sizeof(unsigned char));
+      memcpy(image_ptr, javascript + i, row_length);
 
       // Walk source data in row size increments
       i += row_length;
 
       // Destination data pointer increment accounts for additional byte
       // from 'no filtering' indicator
-      image_ptr += sizeof(unsigned char) + row_length * sizeof(unsigned char);
+      image_ptr += row_length + 1;
     }
   }
 
   return image;
 }
 
-int write_png_chunk(char *chunk_identifier, unsigned char *data,
+bool write_png_chunk(char *chunk_identifier, unsigned char *data,
                     size_t data_size, FILE *outfile, bool no_crc,
                     bool overflow_data_in_crc) {
   // Write data size
   uint32_t data_size_out = htonl(data_size - (overflow_data_in_crc ? 4 : 0));
-  if (fwrite(&data_size_out, sizeof(unsigned char), 4, outfile) !=
-      4 * sizeof(unsigned char)) {
-    return EXIT_FAILURE;
+  if (fwrite(&data_size_out, 1, 4, outfile) != 4) {
+    return false;
   }
 
   // Write chunk identifier
-  if (fwrite(chunk_identifier, sizeof(unsigned char), 4, outfile) !=
-      4 * sizeof(unsigned char)) {
-    return EXIT_FAILURE;
+  if (fwrite(chunk_identifier, 1, 4, outfile) != 4) {
+    return false;
   }
 
   // Write actual data (can be null)
-  if (fwrite(data, sizeof(unsigned char), data_size, outfile) !=
-      data_size * sizeof(unsigned char)) {
-    return EXIT_FAILURE;
+  if (fwrite(data, 1, data_size, outfile) != data_size) {
+    return false;
   }
 
   if (!no_crc) {
     // Allocate our CRC32 buffer which contains chunk identifier + data
-    unsigned char *crc_buffer = (unsigned char *)malloc(
-        4 * sizeof(unsigned char) + data_size * sizeof(unsigned char));
+    unsigned char *crc_buffer = malloc(4 + data_size);
 
     // Copy chunk identifier and data into CRC32 buffer
-    memcpy(crc_buffer, chunk_identifier, 4 * sizeof(unsigned char));
-    memcpy(crc_buffer + 4 * sizeof(unsigned char), data,
-           data_size * sizeof(unsigned char));
+    memcpy(crc_buffer, chunk_identifier, 4);
+    memcpy(crc_buffer + 4, data, data_size);
 
     // Calculate CRC32
     unsigned long crc = crc32(0L, crc_buffer, 4 + data_size);
 
     // Write CRC32 to file
     uint32_t crc_out = htonl(crc);
-    if (fwrite(&crc_out, sizeof(unsigned char), 4, outfile) !=
-        4 * sizeof(unsigned char)) {
+    if (fwrite(&crc_out, 1, 4, outfile) != 4) {
       free(crc_buffer);
-      return EXIT_FAILURE;
+      return false;
     }
 
     free(crc_buffer);
   }
 
-  return EXIT_SUCCESS;
+  return true;
 }
 
-int write_image_as_png(IMAGE *image, USER_OPTIONS *user_options,
+bool write_image_as_png(IMAGE *image, USER_OPTIONS *user_options,
                        COMPRESSION_STATISTICS *compression_statistics) {
   FILE *outfile = fopen(user_options->png_path, "wb+");
   if (outfile == NULL) {
     printf("Failed to open destination png file '%s'\n",
            user_options->png_path);
-    return EXIT_FAILURE;
+    return false;
   }
 
   // Write PNG header
-  if (fwrite(PNG_HEADER, sizeof(unsigned char), sizeof(PNG_HEADER), outfile) !=
-      sizeof(PNG_HEADER) * sizeof(unsigned char)) {
+  if (fwrite(PNG_HEADER, 1, sizeof(PNG_HEADER), outfile) != sizeof(PNG_HEADER)) {
     printf("Failed to write destination png file '%s' (PNG header)\n",
            user_options->png_path);
     fclose(outfile);
-    return EXIT_FAILURE;
+    return false;
   }
 
   // Write image header (IHDR) chunk
   PNG_IHDR png_ihdr = {
       htonl(image->width), htonl(image->height), 8, 0, 0, 0, 0};
-  if (write_png_chunk("IHDR", (unsigned char *)&png_ihdr,
-                      2 * sizeof(unsigned int) + 5 * sizeof(unsigned char),
-                      outfile, false, false) != EXIT_SUCCESS) {
+  if (!write_png_chunk("IHDR", (unsigned char *)&png_ihdr,
+                      2 * sizeof(unsigned int) + 5, outfile, false, false)) {
     printf("Failed to write destination png file '%s' (IHDR)\n",
            user_options->png_path);
     fclose(outfile);
-    return EXIT_FAILURE;
+    return false;
   }
 
   // Prepare unpack code
@@ -278,20 +269,20 @@ int write_image_as_png(IMAGE *image, USER_OPTIONS *user_options,
   } else {
     // Height of multi row image needs to be substituted in the unpack code
     size_t max_unpack_code_length = strlen(MULTI_ROW_IMAGE_HTML_UNPACK) + 4;
-    unpack_code = malloc(max_unpack_code_length * sizeof(char));
+    unpack_code = malloc(max_unpack_code_length);
     snprintf(unpack_code, max_unpack_code_length, MULTI_ROW_IMAGE_HTML_UNPACK,
              image->height);
     compression_statistics->multi_row_image = true;
   }
 
   // Write custom chunk with unpack code
-  if (write_png_chunk("jawh", (unsigned char *)unpack_code, strlen(unpack_code),
+  if (!write_png_chunk("jawh", (unsigned char *)unpack_code, strlen(unpack_code),
                       outfile, user_options->apply_format_hacks,
-                      user_options->apply_format_hacks) != EXIT_SUCCESS) {
+                      user_options->apply_format_hacks)) {
     printf("Failed to write destination png file '%s' (custom chunk)\n",
            user_options->png_path);
     fclose(outfile);
-    return EXIT_FAILURE;
+    return false;
   }
 
   if (image->height > 1) {
@@ -311,37 +302,35 @@ int write_image_as_png(IMAGE *image, USER_OPTIONS *user_options,
   } else {
     // ZLIB deflate
     compressed_data_size = compressBound(image->size);
-    compressed_data =
-        (unsigned char *)malloc(compressed_data_size * sizeof(unsigned char));
+    compressed_data = malloc(compressed_data_size);
     if (compress2(compressed_data, &compressed_data_size, image->data,
                   image->size, 9 /* level */) != Z_OK) {
       printf("Failed to deflate image data\n");
       free(compressed_data);
       fclose(outfile);
-      return EXIT_FAILURE;
+      return false;
     }
   }
 
-  if (write_png_chunk("IDAT", compressed_data, compressed_data_size, outfile,
+  if (!write_png_chunk("IDAT", compressed_data, compressed_data_size, outfile,
                       user_options->apply_format_hacks,
-                      false) != EXIT_SUCCESS) {
+                      false)) {
     printf("Failed to write destination png file '%s' (IDAT)\n",
            user_options->png_path);
     free(compressed_data);
     fclose(outfile);
-    return EXIT_FAILURE;
+    return false;
   }
 
   free(compressed_data);
 
   if (!user_options->apply_format_hacks) {
     // Write end (IEND) chunk
-    if (write_png_chunk("IEND", NULL, 0, outfile, false, false) !=
-        EXIT_SUCCESS) {
+    if (!write_png_chunk("IEND", NULL, 0, outfile, false, false)) {
       printf("Failed to write destination png file '%s' (IEND)\n",
              user_options->png_path);
       fclose(outfile);
-      return EXIT_FAILURE;
+      return false;
     }
   }
 
@@ -349,7 +338,7 @@ int write_image_as_png(IMAGE *image, USER_OPTIONS *user_options,
 
   fclose(outfile);
 
-  return EXIT_SUCCESS;
+  return true;
 }
 
 void print_compression_statistics(
@@ -429,12 +418,12 @@ int main(int argc, char *argv[]) {
   USER_OPTIONS user_options = {NULL, NULL, false, 10, false, true, false};
   process_command_line(&user_options, argc, argv);
   if (user_options.javascript_path == NULL || user_options.png_path == NULL) {
-    return EXIT_FAILURE;
+    exit(EXIT_FAILURE);
   }
 
   char *javascript = read_text_file(user_options.javascript_path);
   if (javascript == NULL) {
-    return EXIT_FAILURE;
+    exit(EXIT_FAILURE);
   }
 
   COMPRESSION_STATISTICS compression_statistics;
@@ -443,15 +432,15 @@ int main(int argc, char *argv[]) {
 
   free(javascript);
 
-  int status =
+  bool error =
       write_image_as_png(image, &user_options, &compression_statistics);
 
   free(image->data);
   free(image);
 
-  if (status != EXIT_FAILURE && !user_options.no_statistics) {
+  if (!error && !user_options.no_statistics) {
     print_compression_statistics(&compression_statistics);
   }
 
-  return status;
+  return error ? EXIT_FAILURE : EXIT_SUCCESS;
 }
