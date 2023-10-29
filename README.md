@@ -1,6 +1,6 @@
 # zopfli-pnginator
 
-Embbed javascript code in PNG and add custom chunk with a "html unpacking" script. Image data (= js code) compression done via standard deflate or zopfli.
+Quick utility to embbed javascript code in a (compressed) PNG image. Adds a custom chunk to the PNG that contains a tiny "html/js unpacking" script. Image data (input javascript source) will be compressed via zopfli (default) or standard deflate. Opening the PNG with file extension .html in a browser will unpack the image contents and execute the javascript.
 
 Compile: `clang -lz -lzopfli -std=c17 -Wall -Wextra -pedantic zopfli-pnginator.c`
 
