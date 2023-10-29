@@ -11,3 +11,6 @@ Based on:
 Uses:
 - https://github.com/google/zopfli
 - https://github.com/madler/zlib
+
+Notes:
+- Superseded by [https://github.com/mgnauck/js-payload-compress](https://github.com/mgnauck/js-payload-compress)
