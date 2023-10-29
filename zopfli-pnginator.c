@@ -28,7 +28,7 @@ https://github.com/madler/zlib
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 
-typedef struct PNG_IHDR_s {
+typedef struct PNG_IHDR {
   unsigned int width;
   unsigned int height;
   unsigned char bit_depth;
@@ -38,14 +38,14 @@ typedef struct PNG_IHDR_s {
   unsigned char interlace_method;
 } PNG_IHDR;
 
-typedef struct IMAGE_s {
+typedef struct IMAGE {
   unsigned char *data;
   size_t size;
   size_t width;
   size_t height;
 } IMAGE;
 
-typedef struct USER_OPTIONS_s {
+typedef struct USER_OPTIONS {
   char *javascript_path;
   char *png_path;
   bool no_zopfli;
@@ -55,7 +55,7 @@ typedef struct USER_OPTIONS_s {
   bool no_statistics;
 } USER_OPTIONS;
 
-typedef struct COMPRESS_STATISTICS_s {
+typedef struct COMPRESSION_STATISTICS {
   size_t javascript_size;
   size_t png_size;
   bool multi_row_image;
