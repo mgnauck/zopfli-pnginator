@@ -432,15 +432,15 @@ int main(int argc, char *argv[]) {
 
   free(javascript);
 
-  bool error =
+  bool success =
       write_image_as_png(image, &user_options, &compression_statistics);
 
   free(image->data);
   free(image);
 
-  if (!error && !user_options.no_statistics) {
+  if (success && !user_options.no_statistics) {
     print_compression_statistics(&compression_statistics);
   }
 
-  return error ? EXIT_FAILURE : EXIT_SUCCESS;
+  return success ? EXIT_SUCCESS : EXIT_FAILURE;
 }
